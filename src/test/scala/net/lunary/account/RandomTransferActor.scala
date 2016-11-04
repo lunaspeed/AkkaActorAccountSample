@@ -11,22 +11,20 @@ object RandomTransferActor {
 }
 
 /**
-  * Created by Lunaspeed on 10/31/16.
+  * Transfer between accounts randomly chosen from account list and repeat for certain amount of times.
   */
-class RandomTransferActor(accountsAr: ActorRef, accountList: Seq[String], count: Int) extends Actor with ActorLogging {
-
-  Thread.sleep(1000)
+class RandomTransferActor(checkingAccountsService: ActorRef, accountList: Seq[String], testCount: Int) extends Actor with ActorLogging {
 
   val rand = new SecureRandom()
   val length = accountList.size
 
   def randAccount = accountList(rand.nextInt(length))
 
-  for(i <- 1 to count) {
+  for(i <- 1 to testCount) {
     val from = randAccount
     val to = randAccount
 
-    accountsAr ! CheckingAccounts.Transfer(from, to, rand.nextInt(800))
+    checkingAccountsService ! CheckingAccountsService.Transfer(from, to, rand.nextInt(800))
   }
 
   override def receive: Receive = LoggingReceive {

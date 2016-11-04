@@ -1,7 +1,7 @@
 package net.lunary
 
 import akka.actor.{Actor, ActorSystem, DeadLetter, Props}
-import account.CheckingAccounts
+import account.CheckingAccountsService
 
 /**
   * Created by Lunaspeed on 10/28/16.
@@ -9,7 +9,7 @@ import account.CheckingAccounts
 class DeadLetterListener extends Actor {
 
   def receive = {
-    case d: DeadLetter => d.sender ! CheckingAccounts.AccountActionError("Account Dead")
+    case d: DeadLetter => d.sender ! CheckingAccountsService.AccountActionError("Account Dead")
   }
 }
 

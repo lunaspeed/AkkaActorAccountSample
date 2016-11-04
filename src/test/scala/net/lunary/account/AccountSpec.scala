@@ -13,21 +13,25 @@ class AccountSpec extends TestKit(ActorSystem("testAccounts"))
   with ImplicitSender
   with StopSystemAfterAll {
 
-//  "simple test" must {
-//    "create account" in {
-//      import Account._
-//
-//      val initBalance: Double = 2000
-//      val accountName = "testAccount1"
-//      val accountActor = system.actorOf(Account.props(initBalance), accountName)
-//
-//      accountActor ! Withdraw(100)
-//
-//      expectMsg(Balance(1900))
-//
-//      accountActor ! Withdraw(900)
-//
-//      expectMsg(Balance(1000))
-//    }
-//  }
+  "accounts" must {
+    "be able to deposit and withdraw" in {
+      import Account._
+
+      val initBalance: Double = 2000
+      val accountName = "testAccount1"
+      val accountActor = system.actorOf(Account.props(initBalance), accountName)
+
+      accountActor ! Withdraw(100)
+
+      expectMsg(Balance(1900))
+
+      accountActor ! Withdraw(900)
+
+      expectMsg(Balance(1000))
+
+      accountActor ! Deposit(10)
+
+      expectMsg(Balance(1010))
+    }
+  }
 }

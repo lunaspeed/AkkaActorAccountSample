@@ -8,7 +8,7 @@ import akka.actor._
 import akka.event.LoggingReceive
 import akka.pattern.{ask, pipe}
 
-import CheckingAccounts._
+import CheckingAccountsService._
 import Account._
 
 
@@ -40,49 +40,56 @@ private[account] class TransactionActor(request: AccountAction, originalSender: 
       }
 
     case CloseAccount(name) => sendBalanceAction(name, Account.Close)
+
     case GetAccount(name) => sendBalanceAction(name, Account.GetBalance)
+
     case AccountDeposit(name, amount) => sendBalanceAction(name, Account.Deposit(amount))
+
     case AccountWithdraw(name, amount) => sendBalanceAction(name, Account.Withdraw(amount))
-    case t@Transfer(from, to, amount) =>
+
+    case t @ Transfer(from, to, amount) =>
       sendBalanceAction(from, Account.Withdraw(amount))
-      context.become(depositWithdrawBalance(t))
+      context.become(waitWithdrawReply(t))
+
     case GetAllAccounts =>
-
-
 
       implicit val timeout = Timeout(3 seconds)
 
-      def getBalances = callerContext.children.filter(_.path.name.startsWith("account")).map { child =>
-        child.ask(Account.GetBalance).mapTo[Account.Balance].map((child.path.name, _))
-      }
+      def getBalances = callerContext.children
+        .filter(!_.path.name.startsWith(transactionActorPrefix))
+        .map { child =>
+          child.ask(Account.GetBalance)
+            .mapTo[Account.Balance]
+            .map((child.path.name, _))
+        }
 
-      def combineBalances(f: Future[Iterable[(String, Account.Balance)]]) = {
+      def toAccountInfo(f: Future[Iterable[(String, Account.Balance)]]) = {
 
         f.map(_.map(ab => AccountData(ab._1, ab._2.balance)))
           .map(l => AccountInfo(l.toList))
       }
       killAfter {
-        pipe(combineBalances(Future.sequence(getBalances))) to originalSender
+        pipe(toAccountInfo(Future.sequence(getBalances))) to originalSender
       }
   }
 
-  def receive = LoggingReceive {
+  override def receive: Receive = LoggingReceive {
       case br: BalanceResponse =>  killAfter {
         originalSender ! toAccountResponse(br)
       }
   }
 
-  def depositWithdrawBalance(trans: Transfer): Receive = LoggingReceive {
+  def waitWithdrawReply(trans: Transfer): Receive = LoggingReceive {
     case Balance(b) =>
       sendBalanceAction(trans.to, Account.Deposit(trans.amount))
-      context.become(receiveDepositBalance(AccountData(trans.from, b), trans))
+      context.become(waitDepositReply(AccountData(trans.from, b), trans))
 
     case InsufficientBalance => killAfter {
       originalSender ! toAccountResponse(InsufficientBalance)
     }
   }
 
-  def receiveDepositBalance(withdrawData: AccountData, trans: Transfer): Receive = LoggingReceive {
+  def waitDepositReply(withdrawData: AccountData, trans: Transfer): Receive = LoggingReceive {
       case Balance(b) => killAfter {originalSender ! AccountInfo(List(withdrawData, AccountData(trans.to, b))) }
       case br: BalanceResponse => killAfter { originalSender ! toAccountResponse(br) } //TODO if is error need to rollback withdraw
   }
@@ -97,14 +104,10 @@ private[account] class TransactionActor(request: AccountAction, originalSender: 
 
   def account(name: AccountName) = callerContext.child(name)
 
-  def sendBalanceAction(name: AccountName, action: BalanceAction) = {
+  def replyNotExist = originalSender ! AccountNotExist
 
-    def replyNotExist = originalSender ! AccountNotExist
-
-    account(name).fold(replyNotExist) {
-      _ ! action
-    }
-  }
+  def sendBalanceAction(name: AccountName, action: BalanceAction) =
+    account(name).fold(replyNotExist) {_ ! action}
 
   def toAccountResponse(br: BalanceResponse) = br match {
     case Closed => AccountNotExist
