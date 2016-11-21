@@ -8,6 +8,8 @@ import akka.event.LoggingReceive
 object RandomTransferActor {
 
   def prop(accountsAr: ActorRef, accountList: Seq[String], count: Int) = Props(new RandomTransferActor(accountsAr, accountList, count))
+
+  case object Start
 }
 
 /**
@@ -20,14 +22,16 @@ class RandomTransferActor(checkingAccountsService: ActorRef, accountList: Seq[St
 
   def randAccount = accountList(rand.nextInt(length))
 
-  for(i <- 1 to testCount) {
-    val from = randAccount
-    val to = randAccount
 
-    checkingAccountsService ! CheckingAccountsService.Transfer(from, to, rand.nextInt(800))
-  }
 
   override def receive: Receive = LoggingReceive {
+    case RandomTransferActor.Start =>
+      for(i <- 1 to testCount) {
+        val from = randAccount
+        val to = randAccount
+
+        checkingAccountsService ! CheckingAccountsService.Transfer(from, to, rand.nextInt(800))
+      }
     case _ =>
   }
 }

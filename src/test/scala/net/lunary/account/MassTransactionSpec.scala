@@ -39,7 +39,8 @@ class MassTransactionSpec extends TestKit(ActorSystem("massTransactionTest"))
 
       //do mass transfers between random accounts
       for(i <- 0 to testCount) {
-        system.actorOf(RandomTransferActor.prop(checkingAccountsService, accounts, 100), "randomActor" + (i + 1))
+        val actor = system.actorOf(RandomTransferActor.prop(checkingAccountsService, accounts, 100), "randomActor" + (i + 1))
+        actor ! RandomTransferActor.Start
       }
 
       //wait for transfer to complete, hopefully
